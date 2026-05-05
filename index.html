@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drop Shot Coffee — Expense Ledger</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F5F5F0;color:#1a1a1a;min-height:100vh;padding:2rem 1rem}
+.container{max-width:1100px;margin:0 auto}
+.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem}
+.top-title{font-size:13px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:0.08em}
+.top-sub{font-size:11px;color:#999;margin-top:3px}
+.sync-status{font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid #ddd;color:#999;background:#fff}
+.sync-status.ok{color:#0F6E56;border-color:#5DCAA5;background:#E1F5EE}
+.sync-status.err{color:#A32D2D;border-color:#F09595;background:#FCEBEB}
+.sync-status.loading{color:#854F0B;border-color:#FAC775;background:#FAEEDA}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:2rem}
+.scard{background:#fff;border-radius:10px;padding:16px 18px;border:1px solid #e8e8e8}
+.scard-label{font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px}
+.scard-val{font-size:22px;font-weight:600;color:#1a1a1a}
+.scard-val.red{color:#A32D2D}
+.form-card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:20px;margin-bottom:2rem}
+.form-title{font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:16px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.form-grid-2{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
+.field label{font-size:11px;color:#999;display:block;margin-bottom:5px}
+.field input,.field select{width:100%;font-size:13px;padding:9px 12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;color:#1a1a1a;font-family:inherit;outline:none}
+.field input:focus,.field select:focus{border-color:#aaa;background:#fff}
+.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
+.btn{font-size:12px;padding:9px 18px;border-radius:8px;border:1px solid #ddd;background:#fff;color:#333;cursor:pointer;font-family:inherit;transition:all 0.15s}
+.btn:hover{background:#f5f5f5}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.btn-primary{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.btn-primary:hover{background:#333}
+.btn-sm{font-size:11px;padding:5px 12px}
+.btn-danger{color:#A32D2D;border-color:#F09595;background:#fff}
+.btn-danger:hover{background:#FCEBEB}
+.table-card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden;margin-bottom:1.5rem}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #f0f0f0;background:#fafafa}
+.table-title{font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.07em}
+.filter-row{display:flex;gap:8px}
+.filter-row select{font-size:11px;padding:5px 10px;border:1px solid #e0e0e0;border-radius:20px;background:#fff;color:#666;font-family:inherit}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 16px;font-size:10px;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #f0f0f0;background:#fafafa}
+td{padding:10px 16px;border-bottom:1px solid #f5f5f5;color:#333;vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+.tag{font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;display:inline-block}
+.tag-legal{background:#E1F5EE;color:#0F6E56}
+.tag-brand{background:#FBEAF0;color:#993556}
+.tag-ops{background:#E6F1FB;color:#185FA5}
+.tag-tech{background:#EEEDFE;color:#534AB7}
+.tag-events{background:#FAEEDA;color:#854F0B}
+.tag-admin{background:#F1EFE8;color:#5F5E5A}
+.tag-personnel{background:#FAECE7;color:#993C1D}
+.amount-cell{font-variant-numeric:tabular-nums;text-align:right;color:#A32D2D;font-weight:600}
+.export-row{display:flex;gap:8px;padding:14px 18px;border-top:1px solid #f0f0f0;justify-content:space-between;align-items:center;background:#fafafa}
+.qb-note{font-size:11px;color:#aaa}
+.empty{padding:40px 16px;text-align:center;font-size:13px;color:#bbb}
+@media(max-width:768px){
+  .summary{grid-template-columns:repeat(2,1fr)}
+  .form-grid{grid-template-columns:1fr}
+  .form-grid-2{grid-template-columns:1fr}
+  .filter-row{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="top-bar">
+    <div>
+      <div class="top-title">Drop Shot Coffee — Expense Ledger</div>
+      <div class="top-sub">Delaware C Corp · California Operations · Google Sheets sync</div>
+    </div>
+    <span class="sync-status loading" id="sync-status">Connecting...</span>
+  </div>
+
+  <div class="summary">
+    <div class="scard"><div class="scard-label">Total spent</div><div class="scard-val red" id="s-total">—</div></div>
+    <div class="scard"><div class="scard-label">This month</div><div class="scard-val red" id="s-month">—</div></div>
+    <div class="scard"><div class="scard-label">Entries</div><div class="scard-val" id="s-count">—</div></div>
+    <div class="scard"><div class="scard-label">Categories used</div><div class="scard-val" id="s-cats">—</div></div>
+  </div>
+
+  <div class="form-card">
+    <div class="form-title">Add expense</div>
+    <div class="form-grid">
+      <div class="field"><label>Date</label><input type="date" id="f-date"></div>
+      <div class="field"><label>Amount (USD)</label><input type="number" id="f-amount" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="field"><label>Paid by</label>
+        <select id="f-paidby">
+          <option>Tarek</option><option>Karim</option>
+          <option>Company account</option><option>Headway VC</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Category</label>
+        <select id="f-cat">
+          <option value="Legal & Compliance|6000">Legal & Compliance (6000)</option>
+          <option value="Brand & Creative|6100">Brand & Creative (6100)</option>
+          <option value="Operations & Supply|6200">Operations & Supply (6200)</option>
+          <option value="Technology & Software|6300">Technology & Software (6300)</option>
+          <option value="Events & Activations|6400">Events & Activations (6400)</option>
+          <option value="Personnel & Labor|6500">Personnel & Labor (6500)</option>
+          <option value="Admin & Overhead|6600">Admin & Overhead (6600)</option>
+        </select>
+      </div>
+      <div class="field"><label>Vendor / Payee</label><input type="text" id="f-vendor" placeholder="e.g. Bay Club, Attorney, Stripe"></div>
+      <div class="field"><label>Payment method</label>
+        <select id="f-method">
+          <option>Personal card</option><option>Company card</option>
+          <option>Bank transfer</option><option>Cash</option><option>Check</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid-2">
+      <div class="field"><label>Description (plain English)</label><input type="text" id="f-desc" placeholder="e.g. Tournament venue deposit at Bay Club SSF"></div>
+      <div class="field"><label>Receipt / ref #</label><input type="text" id="f-ref" placeholder="optional"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="clearForm()">Clear</button>
+      <button class="btn btn-primary" id="add-btn" onclick="addEntry()">Add to Google Sheet</button>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-header">
+      <span class="table-title">Ledger entries</span>
+      <div class="filter-row">
+        <select id="filter-cat" onchange="renderTable()">
+          <option value="all">All categories</option>
+          <option>Legal & Compliance</option><option>Brand & Creative</option>
+          <option>Operations & Supply</option><option>Technology & Software</option>
+          <option>Events & Activations</option><option>Personnel & Labor</option>
+          <option>Admin & Overhead</option>
+        </select>
+        <select id="filter-paid" onchange="renderTable()">
+          <option value="all">All payers</option>
+          <option>Tarek</option><option>Karim</option>
+          <option>Company account</option><option>Headway VC</option>
+        </select>
+      </div>
+    </div>
+    <div id="table-wrap"><div class="empty">Loading data from Google Sheets...</div></div>
+    <div class="export-row">
+      <span class="qb-note">Account codes are QuickBooks-compatible</span>
+      <button class="btn btn-sm btn-primary" onclick="exportCSV()">Export CSV for QuickBooks</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbzt09VmdQVZnXwh9P2FLS13KyaIxWzg3kLoV7WIY63LuTWMn21H97kFMYkMU27gv_E/exec';
+let entries = [];
+
+const catTagMap = {
+  'Legal & Compliance':'legal','Brand & Creative':'brand',
+  'Operations & Supply':'ops','Technology & Software':'tech',
+  'Events & Activations':'events','Personnel & Labor':'personnel',
+  'Admin & Overhead':'admin'
+};
+
+function setStatus(msg,type){
+  const el=document.getElementById('sync-status');
+  el.textContent=msg;
+  el.className='sync-status '+(type||'');
+}
+
+function loadData(){
+  setStatus('Syncing...','loading');
+  const cb='cb_'+Date.now();
+  const script=document.createElement('script');
+  script.src=API+'?callback='+cb;
+  window[cb]=function(json){
+    delete window[cb];
+    document.body.removeChild(script);
+    if(json.status==='ok'){
+      entries=json.data.filter(e=>e['Date']&&e['Amount (USD)']);
+      setStatus('Synced with Google Sheets','ok');
+      renderAll();
+    } else {
+      setStatus('Sync error','err');
+    }
+  };
+  script.onerror=function(){
+    delete window[cb];
+    setStatus('Connection error','err');
+    document.getElementById('table-wrap').innerHTML='<div class="empty">Could not connect to Google Sheets.</div>';
+  };
+  document.body.appendChild(script);
+}
+
+async function addEntry(){
+  const date=document.getElementById('f-date').value;
+  const amount=parseFloat(document.getElementById('f-amount').value);
+  const catRaw=document.getElementById('f-cat').value;
+  const[category,accountCode]=catRaw.split('|');
+  const vendor=document.getElementById('f-vendor').value.trim();
+  const desc=document.getElementById('f-desc').value.trim();
+  const paidBy=document.getElementById('f-paidby').value;
+  const paymentMethod=document.getElementById('f-method').value;
+  const reference=document.getElementById('f-ref').value.trim();
+  if(!date||!amount||amount<=0||!desc){alert('Please fill in date, amount, and description.');return;}
+  const btn=document.getElementById('add-btn');
+  btn.disabled=true;btn.textContent='Saving...';
+  setStatus('Saving...','loading');
+  try{
+    await fetch(API,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'add',date,amount,category,accountCode,description:desc,vendor,paidBy,paymentMethod,reference})});
+    clearForm();
+    setTimeout(loadData,2000);
+  }catch(e){setStatus('Save error','err');}
+  btn.disabled=false;btn.textContent='Add to Google Sheet';
+}
+
+async function deleteEntry(date,desc){
+  if(!confirm('Delete this entry from Google Sheets?'))return;
+  setStatus('Deleting...','loading');
+  try{
+    await fetch(API,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'delete',date,description:desc})});
+    setTimeout(loadData,2000);
+  }catch(e){setStatus('Delete error','err');}
+}
+
+function clearForm(){
+  document.getElementById('f-amount').value='';
+  document.getElementById('f-vendor').value='';
+  document.getElementById('f-desc').value='';
+  document.getElementById('f-ref').value='';
+  document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+}
+
+function renderAll(){renderSummary();renderTable();}
+
+function renderSummary(){
+  const total=entries.reduce((s,e)=>s+(parseFloat(e['Amount (USD)'])||0),0);
+  const now=new Date();
+  const month=entries.filter(e=>{const d=new Date(e['Date']);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();})
+    .reduce((s,e)=>s+(parseFloat(e['Amount (USD)'])||0),0);
+  const cats=new Set(entries.map(e=>e['Category'])).size;
+  document.getElementById('s-total').textContent='$'+total.toFixed(2);
+  document.getElementById('s-month').textContent='$'+month.toFixed(2);
+  document.getElementById('s-count').textContent=entries.length;
+  document.getElementById('s-cats').textContent=cats;
+}
+
+function renderTable(){
+  const cf=document.getElementById('filter-cat').value;
+  const pf=document.getElementById('filter-paid').value;
+  const filtered=entries.filter(e=>(cf==='all'||e['Category']===cf)&&(pf==='all'||e['Paid By']===pf));
+  const wrap=document.getElementById('table-wrap');
+  if(!filtered.length){wrap.innerHTML='<div class="empty">No entries match the current filter.</div>';return;}
+  const rows=filtered.map(e=>{
+    const cat=e['Category']||'';
+    const tagClass=catTagMap[cat]||'admin';
+    const amt=parseFloat(e['Amount (USD)'])||0;
+    const safeDate=String(e['Date']||'').replace(/'/g,"\\'");
+    const safeDesc=String(e['Description']||'').replace(/'/g,"\\'");
+    return `<tr>
+      <td>${e['Date']||''}</td>
+      <td><span class="tag tag-${tagClass}">${cat}</span><div style="font-size:10px;color:#bbb;margin-top:3px">Code ${e['Account Code']||''}</div></td>
+      <td>${e['Description']||''}${e['Vendor / Payee']?'<div style="font-size:11px;color:#aaa;margin-top:2px">'+e['Vendor / Payee']+'</div>':''}</td>
+      <td>${e['Paid By']||''}<div style="font-size:11px;color:#aaa;margin-top:2px">${e['Payment Method']||''}</div></td>
+      <td>${e['Reference #']||'—'}</td>
+      <td class="amount-cell">$${amt.toFixed(2)}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteEntry('${safeDate}','${safeDesc}')">Delete</button></td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML=`<table><thead><tr>
+    <th style="width:100px">Date</th>
+    <th style="width:180px">Category</th>
+    <th>Description</th>
+    <th style="width:130px">Paid by</th>
+    <th style="width:80px">Ref #</th>
+    <th style="width:100px;text-align:right">Amount</th>
+    <th style="width:70px"></th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function exportCSV(){
+  if(!entries.length){alert('No entries to export.');return;}
+  const header=['Date','Account Code','Category','Description','Vendor','Paid By','Payment Method','Reference','Amount USD'];
+  const rows=entries.map(e=>[
+    e['Date'],e['Account Code'],e['Category'],
+    '"'+(e['Description']||'').replace(/"/g,'""')+'"',
+    '"'+(e['Vendor / Payee']||'').replace(/"/g,'""')+'"',
+    e['Paid By'],e['Payment Method'],e['Reference #']||'',
+    (parseFloat(e['Amount (USD)'])||0).toFixed(2)
+  ].join(','));
+  const csv=[header.join(','),...rows].join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='dropshot_expenses.csv';a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+loadData();
+</script>
+</body>
+</html>

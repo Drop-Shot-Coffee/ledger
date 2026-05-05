@@ -152,7 +152,7 @@ tr:hover td{background:#fafafa}
 </div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbx40kLevclSu_PKYKThKGkcK7RmO_IOuCGCDikU0grysZGzM4oCPsQExX9eXamjQRD-/exec';
+const API = 'https://script.google.com/macros/s/AKfycbwrvQ8rs7xDQdzs0vfRFkBhPHduw3StXbuAzVkI6ZUq138OEeejKmqtsi0NI3KFQca3/exec';
 let entries = [];
 
 const catTagMap = {
@@ -173,9 +173,15 @@ function loadData(){
   const cb='cb_'+Date.now();
   const script=document.createElement('script');
   script.src=API+'?callback='+cb;
-  window[cb]=function(json){
+  script.onerror=function(){
     delete window[cb];
     document.body.removeChild(script);
+    setStatus('Connection error','err');
+    document.getElementById('table-wrap').innerHTML='<div class="empty">Could not connect to Google Sheets.</div>';
+  };
+  window[cb]=function(json){
+    delete window[cb];
+    if(document.body.contains(script)) document.body.removeChild(script);
     if(json.status==='ok'){
       entries=json.data.filter(e=>e['Date']&&e['Amount (USD)']);
       setStatus('Synced with Google Sheets','ok');
@@ -184,12 +190,14 @@ function loadData(){
       setStatus('Sync error','err');
     }
   };
-  script.onerror=function(){
-    delete window[cb];
-    setStatus('Connection error','err');
-    document.getElementById('table-wrap').innerHTML='<div class="empty">Could not connect to Google Sheets.</div>';
-  };
   document.body.appendChild(script);
+  setTimeout(function(){
+    if(window[cb]){
+      delete window[cb];
+      setStatus('Timeout — check deployment','err');
+      document.getElementById('table-wrap').innerHTML='<div class="empty">Google Sheets took too long to respond.</div>';
+    }
+  },10000);
 }
 
 async function addEntry(){
@@ -207,21 +215,32 @@ async function addEntry(){
   btn.disabled=true;btn.textContent='Saving...';
   setStatus('Saving...','loading');
   try{
-    await fetch(API,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'add',date,amount,category,accountCode,description:desc,vendor,paidBy,paymentMethod,reference})});
+    await fetch(API,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'add',date,amount,category,accountCode,description:desc,vendor,paidBy,paymentMethod,reference})
+    });
     clearForm();
-    setTimeout(loadData,2000);
-  }catch(e){setStatus('Save error','err');}
-  btn.disabled=false;btn.textContent='Add to Google Sheet';
+    setTimeout(loadData,2500);
+  }catch(e){
+    setStatus('Save error','err');
+  }
+  btn.disabled=false;
+  btn.textContent='Add to Google Sheet';
 }
 
 async function deleteEntry(date,desc){
   if(!confirm('Delete this entry from Google Sheets?'))return;
   setStatus('Deleting...','loading');
   try{
-    await fetch(API,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'delete',date,description:desc})});
-    setTimeout(loadData,2000);
+    await fetch(API,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'delete',date,description:desc})
+    });
+    setTimeout(loadData,2500);
   }catch(e){setStatus('Delete error','err');}
 }
 
@@ -238,8 +257,10 @@ function renderAll(){renderSummary();renderTable();}
 function renderSummary(){
   const total=entries.reduce((s,e)=>s+(parseFloat(e['Amount (USD)'])||0),0);
   const now=new Date();
-  const month=entries.filter(e=>{const d=new Date(e['Date']);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();})
-    .reduce((s,e)=>s+(parseFloat(e['Amount (USD)'])||0),0);
+  const month=entries.filter(e=>{
+    const d=new Date(e['Date']);
+    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+  }).reduce((s,e)=>s+(parseFloat(e['Amount (USD)'])||0),0);
   const cats=new Set(entries.map(e=>e['Category'])).size;
   document.getElementById('s-total').textContent='$'+total.toFixed(2);
   document.getElementById('s-month').textContent='$'+month.toFixed(2);

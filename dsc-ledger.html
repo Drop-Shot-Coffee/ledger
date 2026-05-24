@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSC-Admin · Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    --paper: #f5f1e8;
+    --paper-dark: #ebe5d6;
+    --ink: #1a1f2e;
+    --ink-soft: #4a5161;
+    --ink-mute: #8a8c93;
+    --rule: #c9bfa8;
+    --rule-soft: #ddd4bf;
+    --accent: #b8463c;
+    --accent-soft: #d97766;
+    --positive: #2d5a3d;
+    --warning: #8b6914;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100vh; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.5;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(184,70,60,0.04) 31px, rgba(184,70,60,0.04) 32px);
+  }
+  .page { max-width: 1320px; margin: 0 auto; padding: 48px 56px; }
+
+  header { border-bottom: 2px solid var(--ink); padding-bottom: 24px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .brand { display: flex; flex-direction: column; gap: 4px; }
+  .brand-mark { font-family: 'Cormorant Garamond', serif; font-size: 13px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ink-soft); }
+  .brand-title { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 42px; line-height: 1; letter-spacing: -0.01em; }
+  .brand-sub { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 16px; color: var(--ink-soft); margin-top: 2px; }
+  .header-meta { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft); letter-spacing: 0.05em; }
+  .header-meta div { margin: 2px 0; }
+  .user-badge { margin-top: 8px; display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+  .user-badge button {
+    background: none; border: 1px solid var(--rule); color: var(--ink-soft);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 4px 10px; cursor: pointer; letter-spacing: 0.05em;
+  }
+  .user-badge button:hover { background: var(--paper-dark); color: var(--ink); }
+
+  .auth-screen { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 24px; }
+  .auth-card { background: var(--paper); border: 1px solid var(--rule); padding: 48px 56px; max-width: 420px; width: 100%; box-shadow: 0 20px 60px rgba(26,31,46,0.08); }
+  .auth-card .brand-title { font-size: 36px; margin-bottom: 4px; }
+  .auth-card .brand-sub { margin-bottom: 32px; }
+  .auth-form { display: flex; flex-direction: column; gap: 16px; margin-top: 24px; }
+  .auth-error { color: var(--accent); font-size: 12px; font-family: 'JetBrains Mono', monospace; min-height: 16px; }
+
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-bottom: 40px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .summary-item { padding: 20px 24px; border-right: 1px solid var(--rule); }
+  .summary-item:last-child { border-right: none; }
+  .summary-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px; }
+  .summary-value { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+  .summary-value.accent { color: var(--accent); }
+
+  .entry-section { margin-bottom: 48px; }
+  .section-title { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 24px; margin-bottom: 20px; color: var(--ink); display: flex; align-items: baseline; gap: 12px; }
+  .section-title::after { content: ''; flex: 1; border-bottom: 1px dashed var(--rule); margin-bottom: 4px; }
+
+  form.entry-form { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px 18px; align-items: end; padding: 28px; background: rgba(255,255,255,0.4); border: 1px solid var(--rule-soft); }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field.c2 { grid-column: span 2; }
+  .field.c3 { grid-column: span 3; }
+  .field.c4 { grid-column: span 4; }
+  .field.c6 { grid-column: span 6; }
+  .field.c12 { grid-column: span 12; }
+  label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
+  input, select, textarea {
+    font-family: 'Inter', sans-serif; font-size: 14px; padding: 8px 10px;
+    border: none; border-bottom: 1px solid var(--ink-soft); background: transparent; color: var(--ink);
+    transition: border-color 0.15s; width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-bottom-color: var(--accent); }
+  input[type="number"] { font-family: 'JetBrains Mono', monospace; }
+
+  .payment-block, .receipt-block {
+    grid-column: span 12;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 14px 18px;
+    padding: 20px 16px 16px;
+    border: 1px dashed var(--rule);
+    background: rgba(255,255,255,0.3);
+    position: relative;
+  }
+  .payment-block::before { content: 'PAYMENT FLOW'; }
+  .receipt-block::before { content: 'RECEIPT / INVOICE'; }
+  .payment-block::before, .receipt-block::before {
+    position: absolute; top: -8px; left: 14px;
+    background: var(--paper);
+    padding: 0 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.2em; color: var(--ink-mute);
+  }
+  .payment-step { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .payment-step.hidden, .field.hidden { display: none !important; }
+  .step-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--accent);
+    letter-spacing: 0.2em; margin-bottom: 2px;
+  }
+
+  .file-input-wrap {
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--ink-soft);
+    padding: 6px 0;
+  }
+  .file-input-wrap input[type="file"] {
+    border: none; padding: 0; font-size: 12px;
+    flex: 1;
+  }
+  .file-input-wrap input[type="file"]::file-selector-button {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em;
+    background: var(--ink); color: var(--paper); border: none; padding: 6px 12px; cursor: pointer; margin-right: 10px;
+  }
+  .file-input-wrap.disabled { opacity: 0.4; pointer-events: none; }
+  .hint { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink-mute); margin-top: 4px; }
+
+  .checkbox-field { flex-direction: row; align-items: center; gap: 8px; padding-bottom: 8px; }
+  .checkbox-field label { margin: 0; cursor: pointer; }
+  .checkbox-field input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+  .checkbox-field.dimmed { opacity: 0.35; pointer-events: none; }
+
+  button.primary {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    background: var(--ink); color: var(--paper); border: none; padding: 12px 24px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  button.primary:hover { background: var(--accent); }
+  button.primary:disabled { background: var(--ink-soft); cursor: not-allowed; }
+
+  .form-msg { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 8px 0; min-height: 28px; }
+  .form-msg.success { color: var(--positive); }
+  .form-msg.error { color: var(--accent); }
+  .form-msg.info { color: var(--ink-soft); }
+
+  .ledger-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ledger-table thead { border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); }
+  .ledger-table th {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    text-align: left; padding: 10px 8px; color: var(--ink-soft); font-weight: 500;
+  }
+  .ledger-table td { padding: 12px 8px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  .ledger-table tbody tr:hover { background: rgba(255,255,255,0.5); }
+  .num { font-family: 'JetBrains Mono', monospace; text-align: right; }
+  .amount { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 600; }
+  .tag { display: inline-block; padding: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid var(--rule); border-radius: 2px; margin-left: 4px; }
+  .tag.reimb { background: rgba(184,70,60,0.08); border-color: var(--accent-soft); color: var(--accent); }
+  .tag.no-receipt { background: rgba(139,105,20,0.08); border-color: var(--warning); color: var(--warning); }
+  .tag.receipt-yes { background: rgba(45,90,61,0.08); border-color: var(--positive); color: var(--positive); cursor: pointer; }
+  .receipts-row td { padding: 0 8px 12px; border-bottom: 1px solid var(--rule-soft); background: rgba(255,255,255,0.3); }
+  .receipts-row.collapsed { display: none; }
+  .receipts-list { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; margin-left: 24px; border-left: 2px solid var(--rule); }
+  .receipts-list-item {
+    display: flex; align-items: center; gap: 12px; padding: 6px 0;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  }
+  .receipts-list-item .file-name { flex: 1; color: var(--ink); }
+  .receipts-list-item .file-meta { color: var(--ink-mute); font-size: 10px; }
+  .receipts-list-item a {
+    color: var(--accent); text-decoration: none; padding: 2px 8px;
+    border: 1px solid var(--accent-soft); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .receipts-list-item a:hover { background: var(--accent); color: var(--paper); }
+  .pay-cell { font-size: 11px; line-height: 1.4; }
+  .pay-cell .pay-source { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--ink-soft); letter-spacing: 0.05em; }
+  .row-actions { text-align: right; white-space: nowrap; }
+  .row-actions button { background: none; border: none; color: var(--ink-soft); cursor: pointer; font-size: 14px; padding: 4px 6px; }
+  .row-actions button:hover { color: var(--accent); }
+  .row-actions button.edit-btn { font-size: 12px; }
+
+  .edit-mode-banner {
+    grid-column: span 12;
+    display: none;
+    align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+    background: rgba(184,70,60,0.08);
+    border-left: 3px solid var(--accent);
+    margin-bottom: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+  .edit-mode-banner.active { display: flex; }
+  .edit-mode-banner button {
+    background: transparent; color: var(--accent);
+    border: 1px solid var(--accent); padding: 4px 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+  }
+  .edit-mode-banner button:hover { background: var(--accent); color: var(--paper); }
+  body.editing .entry-section:first-of-type { scroll-margin-top: 20px; }
+  tr.editing-row { background: rgba(184,70,60,0.06) !important; }
+  tr.editing-row td:first-child { border-left: 3px solid var(--accent); }
+
+  .empty-state { text-align: center; padding: 64px 24px; color: var(--ink-soft); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 18px; }
+
+  .filters { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .filters select { padding: 6px 8px; font-size: 12px; min-width: 140px; }
+  .filters .filter-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
+  .export-btn {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    background: transparent; color: var(--ink); border: 1px solid var(--ink); padding: 8px 16px; cursor: pointer; margin-left: auto;
+  }
+  .export-btn:hover { background: var(--ink); color: var(--paper); }
+
+  footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--rule); font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-soft); letter-spacing: 0.05em; text-align: center; }
+
+  @media (max-width: 1000px) {
+    .page { padding: 24px 20px; }
+    header { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .header-meta { text-align: left; }
+    .user-badge { justify-content: flex-start; }
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .summary-item:nth-child(2) { border-right: none; }
+    .summary-item:nth-child(1), .summary-item:nth-child(2) { border-bottom: 1px solid var(--rule); }
+    .field.c2, .field.c3, .field.c4 { grid-column: span 6; }
+    .field.c6 { grid-column: span 12; }
+    .ledger-table { font-size: 11px; }
+    .ledger-table th, .ledger-table td { padding: 8px 4px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="auth-screen" class="auth-screen" style="display:none;">
+  <div class="auth-card">
+    <div class="brand-mark">Drop Shot Coffee · Inc.</div>
+    <div class="brand-title">DSC-Admin</div>
+    <div class="brand-sub">Sign in to continue</div>
+    <form id="login-form" class="auth-form">
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" required>
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" required>
+      </div>
+      <div id="auth-error" class="auth-error"></div>
+      <button type="submit" class="primary">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="page" style="display:none;">
+  <header>
+    <div class="brand">
+      <div class="brand-mark">Drop Shot Coffee · Inc.</div>
+      <div class="brand-title">Accounting Ledger</div>
+      <div class="brand-sub">DSC-Admin · Module 01</div>
+    </div>
+    <div class="header-meta">
+      <div id="meta-date"></div>
+      <div>Delaware C-Corp · California operations</div>
+      <div class="user-badge">
+        <span id="user-email"></span>
+        <button id="logout-btn">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="summary">
+    <div class="summary-item">
+      <div class="summary-label">Total Entries</div>
+      <div class="summary-value" id="sum-count">0</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">Total Spend (USD)</div>
+      <div class="summary-value" id="sum-total">$0.00</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">Owed to Tarek</div>
+      <div class="summary-value accent" id="sum-tarek">$0.00</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">Owed to Karim</div>
+      <div class="summary-value accent" id="sum-karim">$0.00</div>
+    </div>
+  </div>
+
+  <section class="entry-section">
+    <div class="section-title">Record an entry</div>
+    <form id="entry-form" class="entry-form">
+      <div class="edit-mode-banner" id="edit-banner">
+        <span>EDITING ENTRY · <span id="edit-banner-id"></span></span>
+        <button type="button" id="cancel-edit-btn">Cancel</button>
+      </div>
+      <div class="field c2">
+        <label for="f-date">Date</label>
+        <input type="date" id="f-date" required>
+      </div>
+      <div class="field c4">
+        <label for="f-category">Category</label>
+        <select id="f-category" required></select>
+      </div>
+      <div class="field c4">
+        <label for="f-description">Description</label>
+        <input type="text" id="f-description" required placeholder="What was this for?">
+      </div>
+      <div class="field c2">
+        <label for="f-amount">Amount (USD)</label>
+        <input type="number" id="f-amount" step="0.01" min="0" required placeholder="0.00">
+      </div>
+
+      <div class="field c6 hidden" id="f-category-other-wrap">
+        <label for="f-category-other">Specify category (flagged for bookkeeper)</label>
+        <input type="text" id="f-category-other" placeholder="Type custom category">
+      </div>
+
+      <div class="field c3">
+        <label for="f-vendor">Vendor</label>
+        <input type="text" id="f-vendor" placeholder="Who was paid?">
+      </div>
+      <div class="field c3">
+        <label for="f-reference">Reference / Invoice #</label>
+        <input type="text" id="f-reference" placeholder="Optional">
+      </div>
+
+      <div class="payment-block">
+        <div class="payment-step field c3">
+          <span class="step-num">STEP 1</span>
+          <label for="f-source">Source</label>
+          <select id="f-source" required>
+            <option value="">— select —</option>
+            <option value="Personal">Personal</option>
+            <option value="DSC Company">DSC Company</option>
+          </select>
+        </div>
+
+        <div class="payment-step field c3 hidden" id="f-personal-instrument-wrap">
+          <span class="step-num">STEP 2</span>
+          <label for="f-personal-instrument">Instrument</label>
+          <select id="f-personal-instrument">
+            <option value="">— select —</option>
+            <option>Credit Card</option>
+            <option>Debit Card</option>
+            <option>Zelle</option>
+            <option>Wire/ACH</option>
+            <option>Cash</option>
+            <option>Other</option>
+          </select>
+        </div>
+
+        <div class="payment-step field c3 hidden" id="f-personal-paidby-wrap">
+          <span class="step-num">STEP 3</span>
+          <label for="f-personal-paidby">Paid By</label>
+          <select id="f-personal-paidby">
+            <option value="">— select —</option>
+            <option>Tarek</option>
+            <option>Karim</option>
+            <option>Other</option>
+          </select>
+        </div>
+
+        <div class="payment-step field c3 hidden" id="f-paidby-other-wrap">
+          <span class="step-num">STEP 4</span>
+          <label for="f-paidby-other">Specify name</label>
+          <input type="text" id="f-paidby-other" placeholder="Who paid?">
+        </div>
+
+        <div class="payment-step field c3 hidden" id="f-company-bank-wrap">
+          <span class="step-num">STEP 2</span>
+          <label for="f-company-bank">Account</label>
+          <select id="f-company-bank">
+            <option value="">— select —</option>
+            <option>BofA</option>
+            <option>Mercury</option>
+            <option>Cash</option>
+            <option>Other</option>
+          </select>
+        </div>
+
+        <div class="payment-step field c3 hidden" id="f-company-instrument-wrap">
+          <span class="step-num">STEP 3</span>
+          <label for="f-company-instrument">Instrument</label>
+          <select id="f-company-instrument">
+            <option value="">— select —</option>
+            <option>Credit Card</option>
+            <option>Debit Card</option>
+            <option>Zelle</option>
+            <option>Wire/ACH</option>
+          </select>
+        </div>
+
+        <div class="field c3 checkbox-field dimmed" id="f-reimbursable-wrap">
+          <input type="checkbox" id="f-reimbursable">
+          <label for="f-reimbursable">Reimburse me</label>
+        </div>
+      </div>
+
+      <div class="receipt-block">
+        <div class="field c6">
+          <label>Upload receipt or invoice</label>
+          <div class="file-input-wrap" id="file-input-wrap">
+            <input type="file" id="f-receipt-file" accept=".pdf,.png,.jpg,.jpeg,.heic,.webp" multiple>
+          </div>
+          <span class="hint">PDF, PNG, JPG, HEIC, WEBP · max 10 MB each · multiple allowed (hold ⌘ or Ctrl to select more)</span>
+        </div>
+        <div class="field c6 checkbox-field">
+          <input type="checkbox" id="f-no-receipt">
+          <label for="f-no-receipt">Receipt or invoice not available</label>
+        </div>
+      </div>
+
+      <div class="field c12" style="display:flex; justify-content:space-between; align-items:center;">
+        <div id="form-msg" class="form-msg"></div>
+        <button type="submit" class="primary" id="submit-btn">Add Entry</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="entry-section">
+    <div class="section-title">Ledger</div>
+    <div class="filters">
+      <span class="filter-label">Filter:</span>
+      <select id="filter-category"><option value="">All categories</option></select>
+      <select id="filter-source">
+        <option value="">All sources</option>
+        <option>Personal</option>
+        <option>DSC Company</option>
+      </select>
+      <select id="filter-reimb">
+        <option value="">All entries</option>
+        <option value="true">Reimbursable only</option>
+        <option value="unpaid">Reimbursable & unpaid</option>
+      </select>
+      <select id="filter-receipt">
+        <option value="">Any receipt status</option>
+        <option value="attached">Receipt attached</option>
+        <option value="unavailable">Receipt unavailable</option>
+        <option value="pending">No receipt yet</option>
+      </select>
+      <button class="export-btn" id="export-btn">↓ Export CSV</button>
+    </div>
+    <table class="ledger-table">
+      <thead>
+        <tr>
+          <th style="width:90px">Date</th>
+          <th style="width:60px">Code</th>
+          <th>Category</th>
+          <th>Description</th>
+          <th>Vendor</th>
+          <th>Paid By</th>
+          <th>Payment</th>
+          <th>Ref</th>
+          <th class="num">Amount</th>
+          <th style="width:80px"></th>
+        </tr>
+      </thead>
+      <tbody id="ledger-body">
+        <tr><td colspan="10" class="empty-state">Loading entries…</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    DSC-Admin · Ledger · Powered by Supabase · Delaware C-Corp · California foreign-qualified
+  </footer>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://iwufnpzlwxzzedwcrjrk.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_suHnnWiR60uSP_bKx9V_Yg_GJoCzddq';
+
+  const CATEGORIES = [
+    { code: '6010', name: 'Legal Fees', group: 'Legal & Professional' },
+    { code: '6020', name: 'Accounting Fees', group: 'Legal & Professional' },
+    { code: '6030', name: 'Consulting Fees', group: 'Legal & Professional' },
+    { code: '6110', name: 'Brand Development', group: 'Marketing & Brand' },
+    { code: '6120', name: 'Advertising', group: 'Marketing & Brand' },
+    { code: '6130', name: 'Promotions & PR', group: 'Marketing & Brand' },
+    { code: '6210', name: 'Supplies', group: 'Operations' },
+    { code: '6220', name: 'Inventory', group: 'Operations' },
+    { code: '6230', name: 'Equipment', group: 'Operations' },
+    { code: '6240', name: 'Repairs & Maintenance', group: 'Operations' },
+    { code: '6310', name: 'Software Subscriptions', group: 'Technology' },
+    { code: '6320', name: 'Hardware', group: 'Technology' },
+    { code: '6330', name: 'Hosting & Domains', group: 'Technology' },
+    { code: '6410', name: 'Tournament Costs', group: 'Events & Activations' },
+    { code: '6420', name: 'Venue Fees', group: 'Events & Activations' },
+    { code: '6430', name: 'Hospitality', group: 'Events & Activations' },
+    { code: '6510', name: 'Salaries', group: 'Personnel' },
+    { code: '6520', name: 'Contractor Fees', group: 'Personnel' },
+    { code: '6530', name: 'Benefits', group: 'Personnel' },
+    { code: '6540', name: 'Payroll Taxes', group: 'Personnel' },
+    { code: '6610', name: 'Travel', group: 'Travel & Meals' },
+    { code: '6620', name: 'Meals (50% deductible)', group: 'Travel & Meals' },
+    { code: '6630', name: 'Lodging', group: 'Travel & Meals' },
+    { code: '6710', name: 'Rent', group: 'Office & Admin' },
+    { code: '6720', name: 'Utilities', group: 'Office & Admin' },
+    { code: '6730', name: 'Insurance', group: 'Office & Admin' },
+    { code: '6740', name: 'Office Supplies', group: 'Office & Admin' },
+    { code: '6750', name: 'Bank Fees', group: 'Office & Admin' },
+    { code: '6760', name: 'CA Franchise Tax ($800 min)', group: 'Office & Admin' },
+    { code: '6770', name: 'State Filing Fees', group: 'Office & Admin' },
+    { code: '6810', name: 'Federal Taxes', group: 'Taxes & Licenses' },
+    { code: '6820', name: 'State Taxes', group: 'Taxes & Licenses' },
+    { code: '6830', name: 'Local Taxes', group: 'Taxes & Licenses' },
+    { code: '6840', name: 'Business Licenses', group: 'Taxes & Licenses' },
+    { code: '9999', name: 'Other (specify)', group: 'Custom' },
+  ];
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let entries = [];
+  let currentUser = null;
+  let editingId = null;  // null = insert mode, string = update mode
+
+  const authScreen = document.getElementById('auth-screen');
+  const app = document.getElementById('app');
+  const loginForm = document.getElementById('login-form');
+  const authError = document.getElementById('auth-error');
+
+  async function checkSession() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) showApp(session.user);
+    else showAuth();
+  }
+  function showAuth() { authScreen.style.display = 'flex'; app.style.display = 'none'; }
+  function showApp(user) {
+    currentUser = user;
+    authScreen.style.display = 'none';
+    app.style.display = 'block';
+    document.getElementById('user-email').textContent = user.email;
+    document.getElementById('meta-date').textContent = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    document.getElementById('f-date').valueAsDate = new Date();
+    populateCategories();
+    loadEntries();
+  }
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    authError.textContent = '';
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { authError.textContent = error.message; return; }
+    showApp(data.user);
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    location.reload();
+  });
+
+  function populateCategories() {
+    const sel = document.getElementById('f-category');
+    const filterSel = document.getElementById('filter-category');
+    sel.innerHTML = '<option value="">— select —</option>';
+    let lastGroup = '';
+    let currentOg = null;
+    CATEGORIES.forEach(c => {
+      if (c.group !== lastGroup) {
+        currentOg = document.createElement('optgroup');
+        currentOg.label = c.group;
+        sel.appendChild(currentOg);
+        lastGroup = c.group;
+      }
+      const opt = document.createElement('option');
+      opt.value = c.code + '|' + c.name;
+      opt.dataset.code = c.code;
+      opt.textContent = `${c.code} — ${c.name}`;
+      currentOg.appendChild(opt);
+    });
+    CATEGORIES.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      opt.textContent = `${c.code} — ${c.name}`;
+      filterSel.appendChild(opt);
+    });
+  }
+
+  document.getElementById('f-category').addEventListener('change', (e) => {
+    const wrap = document.getElementById('f-category-other-wrap');
+    const input = document.getElementById('f-category-other');
+    if (e.target.value.startsWith('9999|')) {
+      wrap.classList.remove('hidden');
+      input.required = true;
+    } else {
+      wrap.classList.add('hidden');
+      input.required = false;
+      input.value = '';
+    }
+  });
+
+  const els = {
+    source: document.getElementById('f-source'),
+    personalInstrumentWrap: document.getElementById('f-personal-instrument-wrap'),
+    personalInstrument: document.getElementById('f-personal-instrument'),
+    personalPaidbyWrap: document.getElementById('f-personal-paidby-wrap'),
+    personalPaidby: document.getElementById('f-personal-paidby'),
+    paidbyOtherWrap: document.getElementById('f-paidby-other-wrap'),
+    paidbyOther: document.getElementById('f-paidby-other'),
+    companyBankWrap: document.getElementById('f-company-bank-wrap'),
+    companyBank: document.getElementById('f-company-bank'),
+    companyInstrumentWrap: document.getElementById('f-company-instrument-wrap'),
+    companyInstrument: document.getElementById('f-company-instrument'),
+    reimbursableWrap: document.getElementById('f-reimbursable-wrap'),
+    reimbursable: document.getElementById('f-reimbursable'),
+  };
+
+  function hide(el) { el.classList.add('hidden'); }
+  function show(el) { el.classList.remove('hidden'); }
+
+  function resetPaymentCascade() {
+    [els.personalInstrumentWrap, els.personalPaidbyWrap, els.paidbyOtherWrap,
+     els.companyBankWrap, els.companyInstrumentWrap].forEach(hide);
+    els.personalInstrument.value = '';
+    els.personalPaidby.value = '';
+    els.paidbyOther.value = '';
+    els.companyBank.value = '';
+    els.companyInstrument.value = '';
+    els.personalInstrument.required = false;
+    els.personalPaidby.required = false;
+    els.paidbyOther.required = false;
+    els.companyBank.required = false;
+    els.companyInstrument.required = false;
+  }
+
+  els.source.addEventListener('change', () => {
+    resetPaymentCascade();
+    if (els.source.value === 'Personal') {
+      show(els.personalInstrumentWrap);
+      show(els.personalPaidbyWrap);
+      els.personalInstrument.required = true;
+      els.personalPaidby.required = true;
+      els.reimbursableWrap.classList.remove('dimmed');
+      els.reimbursable.checked = true;
+    } else if (els.source.value === 'DSC Company') {
+      show(els.companyBankWrap);
+      els.companyBank.required = true;
+      els.reimbursableWrap.classList.add('dimmed');
+      els.reimbursable.checked = false;
+    } else {
+      els.reimbursableWrap.classList.add('dimmed');
+      els.reimbursable.checked = false;
+    }
+  });
+
+  els.personalPaidby.addEventListener('change', () => {
+    if (els.personalPaidby.value === 'Other') {
+      show(els.paidbyOtherWrap);
+      els.paidbyOther.required = true;
+    } else {
+      hide(els.paidbyOtherWrap);
+      els.paidbyOther.required = false;
+      els.paidbyOther.value = '';
+    }
+  });
+
+  els.companyBank.addEventListener('change', () => {
+    hide(els.companyInstrumentWrap);
+    els.companyInstrument.required = false;
+    els.companyInstrument.value = '';
+    if (['BofA', 'Mercury', 'Other'].includes(els.companyBank.value)) {
+      show(els.companyInstrumentWrap);
+      els.companyInstrument.required = true;
+    }
+  });
+
+  const noReceiptCb = document.getElementById('f-no-receipt');
+  const fileWrap = document.getElementById('file-input-wrap');
+  const fileInput = document.getElementById('f-receipt-file');
+  noReceiptCb.addEventListener('change', () => {
+    if (noReceiptCb.checked) {
+      fileWrap.classList.add('disabled');
+      fileInput.value = '';
+      fileInput.disabled = true;
+    } else {
+      fileWrap.classList.remove('disabled');
+      fileInput.disabled = false;
+    }
+  });
+
+  async function loadEntries() {
+    const { data, error } = await sb.from('ledger')
+      .select('*, ledger_receipts(id, storage_path, file_name, file_size_bytes, mime_type, uploaded_at)')
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false });
+    if (error) { console.error(error); showFormMsg('Failed to load entries: ' + error.message, 'error'); return; }
+    entries = data || [];
+    render();
+  }
+
+  function paymentDisplay(e) {
+    const parts = [];
+    if (e.payment_source) parts.push(e.payment_source);
+    if (e.payment_bank) parts.push(e.payment_bank);
+    if (e.payment_instrument) parts.push(e.payment_instrument);
+    if (parts.length === 0 && e.payment_method) parts.push(e.payment_method);
+    return parts;
+  }
+
+  function paidByDisplay(e) {
+    if (e.paid_by === 'Other' && e.paid_by_other) return e.paid_by_other + ' (Other)';
+    return e.paid_by || '—';
+  }
+
+  function render() {
+    const cf = document.getElementById('filter-category').value;
+    const sf = document.getElementById('filter-source').value;
+    const rf = document.getElementById('filter-reimb').value;
+    const rcf = document.getElementById('filter-receipt').value;
+
+    let filtered = entries;
+    if (cf) filtered = filtered.filter(e => e.category === cf);
+    if (sf) filtered = filtered.filter(e => e.payment_source === sf);
+    if (rf === 'true') filtered = filtered.filter(e => e.reimbursable);
+    if (rf === 'unpaid') filtered = filtered.filter(e => e.reimbursable && !e.reimbursed_date);
+    if (rcf) filtered = filtered.filter(e => (e.receipt_status || 'pending') === rcf);
+
+    const total = entries.reduce((s, e) => s + Number(e.amount_usd), 0);
+    const owedTarek = entries.filter(e => e.paid_by === 'Tarek' && e.reimbursable && !e.reimbursed_date).reduce((s, e) => s + Number(e.amount_usd), 0);
+    const owedKarim = entries.filter(e => e.paid_by === 'Karim' && e.reimbursable && !e.reimbursed_date).reduce((s, e) => s + Number(e.amount_usd), 0);
+
+    document.getElementById('sum-count').textContent = entries.length;
+    document.getElementById('sum-total').textContent = fmt(total);
+    document.getElementById('sum-tarek').textContent = fmt(owedTarek);
+    document.getElementById('sum-karim').textContent = fmt(owedKarim);
+
+    const body = document.getElementById('ledger-body');
+    if (filtered.length === 0) {
+      body.innerHTML = '<tr><td colspan="10" class="empty-state">No entries match. Try clearing filters or record your first transaction above.</td></tr>';
+      return;
+    }
+    body.innerHTML = filtered.map(e => {
+      const payParts = paymentDisplay(e);
+      const status = e.receipt_status || 'pending';
+      const receipts = e.ledger_receipts || [];
+      const receiptCount = receipts.length;
+
+      let receiptTag = '';
+      if (status === 'attached' && receiptCount > 0) {
+        const label = receiptCount === 1 ? '📎 1 receipt' : `📎 ${receiptCount} receipts`;
+        receiptTag = `<span class="tag receipt-yes" onclick="toggleReceipts('${e.id}')">${label}</span>`;
+      } else if (status === 'unavailable') {
+        receiptTag = '<span class="tag no-receipt">No receipt</span>';
+      }
+
+      const receiptsListRow = receiptCount > 0 ? `
+        <tr class="receipts-row collapsed" id="receipts-${e.id}">
+          <td colspan="10">
+            <div class="receipts-list">
+              ${receipts.map(r => `
+                <div class="receipts-list-item">
+                  <span class="file-name">${escape(r.file_name)}</span>
+                  <span class="file-meta">${fmtSize(r.file_size_bytes)} · ${escape(r.mime_type || '')}</span>
+                  <a href="#" onclick="openReceipt('${r.storage_path}'); return false;">View</a>
+                  <a href="#" onclick="deleteReceipt('${r.id}', '${r.storage_path}', '${e.id}'); return false;" style="color:var(--ink-soft); border-color:var(--rule);">Delete</a>
+                </div>
+              `).join('')}
+            </div>
+          </td>
+        </tr>` : '';
+
+      return `
+      <tr>
+        <td class="num">${e.date}</td>
+        <td class="num">${e.account_code}</td>
+        <td>${escape(e.category)}</td>
+        <td>${escape(e.description)} ${e.reimbursable && !e.reimbursed_date ? '<span class="tag reimb">Reimb</span>' : ''} ${receiptTag}</td>
+        <td>${escape(e.vendor || '—')}</td>
+        <td>${escape(paidByDisplay(e))}</td>
+        <td class="pay-cell">
+          ${payParts.length ? `<div class="pay-source">${escape(payParts[0])}</div><div>${escape(payParts.slice(1).join(' · ') || '—')}</div>` : '—'}
+        </td>
+        <td>${escape(e.reference || '—')}</td>
+        <td class="num amount">${fmt(e.amount_usd)}</td>
+        <td class="row-actions">
+          <button class="edit-btn" onclick="startEdit('${e.id}')" title="Edit">✎</button>
+          <button onclick="deleteEntry('${e.id}')" title="Delete">×</button>
+        </td>
+      </tr>${receiptsListRow}`;
+    }).join('');
+  }
+
+  function fmt(n) { return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function escape(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function showFormMsg(text, type) {
+    const el = document.getElementById('form-msg');
+    el.textContent = text;
+    el.className = 'form-msg ' + type;
+    if (type !== 'info') setTimeout(() => { el.textContent = ''; el.className = 'form-msg'; }, 5000);
+  }
+
+  function fmtSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  window.toggleReceipts = function(entryId) {
+    const row = document.getElementById('receipts-' + entryId);
+    if (row) row.classList.toggle('collapsed');
+  };
+
+  window.openReceipt = async function(storagePath) {
+    const { data, error } = await sb.storage.from('receipts').createSignedUrl(storagePath, 300);
+    if (error) { alert('Could not load receipt: ' + error.message); return; }
+    window.open(data.signedUrl, '_blank');
+  };
+
+  window.deleteReceipt = async function(receiptId, storagePath, ledgerId) {
+    if (!confirm('Delete this receipt file?')) return;
+    await sb.storage.from('receipts').remove([storagePath]);
+    const { error } = await sb.from('ledger_receipts').delete().eq('id', receiptId);
+    if (error) { alert('Delete failed: ' + error.message); return; }
+    // If this was the last receipt and entry status was 'attached', leave status as-is
+    // (user can manually set "No receipt" via edit if needed)
+    loadEntries();
+  };
+
+  // ===== EDIT MODE =====
+  window.startEdit = function(id) {
+    const e = entries.find(x => x.id === id);
+    if (!e) return;
+    editingId = id;
+
+    // Banner
+    document.getElementById('edit-banner').classList.add('active');
+    document.getElementById('edit-banner-id').textContent = `${e.date} · ${e.category} · ${fmt(e.amount_usd)}`;
+    document.getElementById('submit-btn').textContent = 'Save Changes';
+    document.body.classList.add('editing');
+
+    // Core fields
+    document.getElementById('f-date').value = e.date;
+    document.getElementById('f-description').value = e.description || '';
+    document.getElementById('f-vendor').value = e.vendor || '';
+    document.getElementById('f-reference').value = e.reference || '';
+    document.getElementById('f-amount').value = e.amount_usd;
+
+    // Category: find matching CATEGORIES row by code+name; if custom (9999), select Other + fill text
+    const catSelect = document.getElementById('f-category');
+    const stdMatch = CATEGORIES.find(c => c.code === e.account_code && c.name === e.category);
+    if (stdMatch) {
+      catSelect.value = stdMatch.code + '|' + stdMatch.name;
+      document.getElementById('f-category-other-wrap').classList.add('hidden');
+      document.getElementById('f-category-other').value = '';
+    } else {
+      // Custom category — set to Other and populate text
+      catSelect.value = '9999|Other (specify)';
+      document.getElementById('f-category-other-wrap').classList.remove('hidden');
+      document.getElementById('f-category-other').value = e.category || '';
+      document.getElementById('f-category-other').required = true;
+    }
+
+    // Payment cascade
+    resetPaymentCascade();
+    els.source.value = e.payment_source || '';
+    if (e.payment_source === 'Personal') {
+      show(els.personalInstrumentWrap);
+      show(els.personalPaidbyWrap);
+      els.personalInstrument.required = true;
+      els.personalPaidby.required = true;
+      els.personalInstrument.value = e.payment_instrument || '';
+      els.personalPaidby.value = e.paid_by || '';
+      if (e.paid_by === 'Other') {
+        show(els.paidbyOtherWrap);
+        els.paidbyOther.required = true;
+        els.paidbyOther.value = e.paid_by_other || '';
+      }
+      els.reimbursableWrap.classList.remove('dimmed');
+      els.reimbursable.checked = !!e.reimbursable;
+    } else if (e.payment_source === 'DSC Company') {
+      show(els.companyBankWrap);
+      els.companyBank.required = true;
+      // Determine bank vs Cash
+      if (e.payment_instrument === 'Cash' && !e.payment_bank) {
+        els.companyBank.value = 'Cash';
+      } else {
+        els.companyBank.value = e.payment_bank || '';
+        if (['BofA', 'Mercury', 'Other'].includes(els.companyBank.value)) {
+          show(els.companyInstrumentWrap);
+          els.companyInstrument.required = true;
+          els.companyInstrument.value = e.payment_instrument || '';
+        }
+      }
+      els.reimbursableWrap.classList.add('dimmed');
+      els.reimbursable.checked = false;
+    }
+
+    // Receipt block: file input cleared (uploading new files ADDS to existing receipts)
+    document.getElementById('f-receipt-file').value = '';
+    document.getElementById('f-no-receipt').checked = (e.receipt_status === 'unavailable');
+    if (e.receipt_status === 'unavailable') {
+      document.getElementById('file-input-wrap').classList.add('disabled');
+      document.getElementById('f-receipt-file').disabled = true;
+    } else {
+      document.getElementById('file-input-wrap').classList.remove('disabled');
+      document.getElementById('f-receipt-file').disabled = false;
+    }
+
+    // Highlight the editing row
+    document.querySelectorAll('tr.editing-row').forEach(r => r.classList.remove('editing-row'));
+    const row = document.querySelector(`button.edit-btn[onclick*="${id}"]`)?.closest('tr');
+    if (row) row.classList.add('editing-row');
+
+    // Scroll form into view
+    document.querySelector('.entry-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  window.cancelEdit = function() {
+    editingId = null;
+    document.getElementById('edit-banner').classList.remove('active');
+    document.getElementById('submit-btn').textContent = 'Add Entry';
+    document.body.classList.remove('editing');
+    document.getElementById('entry-form').reset();
+    document.getElementById('f-date').valueAsDate = new Date();
+    resetPaymentCascade();
+    els.reimbursableWrap.classList.add('dimmed');
+    els.reimbursable.checked = false;
+    document.getElementById('f-category-other-wrap').classList.add('hidden');
+    document.getElementById('file-input-wrap').classList.remove('disabled');
+    document.getElementById('f-receipt-file').disabled = false;
+    document.querySelectorAll('tr.editing-row').forEach(r => r.classList.remove('editing-row'));
+  };
+
+  document.getElementById('cancel-edit-btn').addEventListener('click', cancelEdit);
+
+  document.getElementById('entry-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      const catVal = document.getElementById('f-category').value;
+      const [catCode, catNameStd] = catVal.split('|');
+      const catOther = document.getElementById('f-category-other').value.trim();
+      const finalCategory = (catCode === '9999' && catOther) ? catOther : catNameStd;
+
+      let paidBy, paidByOther = null;
+      if (els.source.value === 'DSC Company') {
+        paidBy = 'Company';
+      } else {
+        paidBy = els.personalPaidby.value;
+        if (paidBy === 'Other') paidByOther = els.paidbyOther.value.trim();
+      }
+
+      const paymentSource = els.source.value;
+      let paymentBank = null, paymentInstrument = null;
+      if (paymentSource === 'Personal') {
+        paymentInstrument = els.personalInstrument.value;
+      } else if (paymentSource === 'DSC Company') {
+        if (els.companyBank.value === 'Cash') {
+          paymentInstrument = 'Cash';
+        } else {
+          paymentBank = els.companyBank.value;
+          paymentInstrument = els.companyInstrument.value;
+        }
+      }
+
+      const noReceipt = noReceiptCb.checked;
+      const files = Array.from(fileInput.files || []);
+      let receiptStatus = 'pending';
+
+      if (noReceipt) {
+        receiptStatus = 'unavailable';
+      } else if (files.length > 0) {
+        // Validate sizes
+        for (const f of files) {
+          if (f.size > 10 * 1024 * 1024) throw new Error(`"${f.name}" exceeds 10 MB limit`);
+        }
+        receiptStatus = 'attached';
+      }
+
+      const payload = {
+        date: document.getElementById('f-date').value,
+        account_code: catCode,
+        category: finalCategory,
+        description: document.getElementById('f-description').value,
+        vendor: document.getElementById('f-vendor').value || null,
+        paid_by: paidBy,
+        paid_by_other: paidByOther,
+        payment_source: paymentSource,
+        payment_bank: paymentBank,
+        payment_instrument: paymentInstrument,
+        reference: document.getElementById('f-reference').value || null,
+        amount_usd: Number(document.getElementById('f-amount').value),
+        reimbursable: paymentSource === 'Personal' ? els.reimbursable.checked : false,
+        receipt_status: receiptStatus,
+      };
+
+      // Insert OR update depending on edit mode
+      let ledgerId;
+      if (editingId) {
+        const { data: updated, error: updErr } = await sb.from('ledger')
+          .update(payload).eq('id', editingId).select().single();
+        if (updErr) throw new Error(updErr.message);
+        ledgerId = editingId;
+      } else {
+        const { data: inserted, error: insertErr } = await sb.from('ledger').insert(payload).select().single();
+        if (insertErr) throw new Error(insertErr.message);
+        ledgerId = inserted.id;
+      }
+
+      // Upload each receipt and create ledger_receipts rows
+      if (files.length > 0) {
+        showFormMsg(`Uploading ${files.length} file${files.length > 1 ? 's' : ''}…`, 'info');
+        const uploaded = [];
+        for (const file of files) {
+          const ext = file.name.split('.').pop().toLowerCase();
+          const path = `${currentUser.id}/${ledgerId}/${crypto.randomUUID()}.${ext}`;
+          const { error: upErr } = await sb.storage.from('receipts').upload(path, file, {
+            contentType: file.type, upsert: false,
+          });
+          if (upErr) {
+            // Best-effort cleanup: delete already-uploaded files; only roll back row on insert
+            if (uploaded.length) await sb.storage.from('receipts').remove(uploaded);
+            if (!editingId) await sb.from('ledger').delete().eq('id', ledgerId);
+            throw new Error(`Upload failed for "${file.name}": ${upErr.message}`);
+          }
+          uploaded.push(path);
+          const { error: recErr } = await sb.from('ledger_receipts').insert({
+            ledger_id: ledgerId,
+            storage_path: path,
+            file_name: file.name,
+            file_size_bytes: file.size,
+            mime_type: file.type,
+          });
+          if (recErr) {
+            await sb.storage.from('receipts').remove(uploaded);
+            if (!editingId) await sb.from('ledger').delete().eq('id', ledgerId);
+            throw new Error(`Receipt record failed: ${recErr.message}`);
+          }
+        }
+      }
+
+      showFormMsg(editingId ? 'Entry updated.' : 'Entry recorded.', 'success');
+      cancelEdit();  // resets form & exits edit mode
+      loadEntries();
+    } catch (err) {
+      showFormMsg('Error: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Add Entry';
+    }
+  });
+
+  window.deleteEntry = async function(id) {
+    const entry = entries.find(e => e.id === id);
+    const receipts = (entry && entry.ledger_receipts) || [];
+    const msg = receipts.length > 0
+      ? `Delete this entry? (${receipts.length} receipt file${receipts.length > 1 ? 's' : ''} will also be deleted)`
+      : 'Delete this entry?';
+    if (!confirm(msg)) return;
+    if (receipts.length > 0) {
+      await sb.storage.from('receipts').remove(receipts.map(r => r.storage_path));
+    }
+    // ledger_receipts rows cascade-delete via FK
+    const { error } = await sb.from('ledger').delete().eq('id', id);
+    if (error) { alert('Delete failed: ' + error.message); return; }
+    loadEntries();
+  };
+
+  ['filter-category','filter-source','filter-reimb','filter-receipt'].forEach(id => {
+    document.getElementById(id).addEventListener('change', render);
+  });
+
+  document.getElementById('export-btn').addEventListener('click', () => {
+    if (entries.length === 0) { alert('Nothing to export.'); return; }
+    const headers = ['Date','Account Code','Category','Description','Vendor','Paid By','Paid By Other','Payment Source','Payment Bank','Payment Instrument','Reference','Amount USD','Reimbursable','Reimbursed Date','Receipt Status','Receipt Count','Receipt Files'];
+    const rows = entries.map(e => {
+      const receipts = e.ledger_receipts || [];
+      return [
+        e.date, e.account_code, csv(e.category), csv(e.description), csv(e.vendor),
+        e.paid_by || '', csv(e.paid_by_other),
+        e.payment_source || '', e.payment_bank || '', e.payment_instrument || '',
+        csv(e.reference),
+        Number(e.amount_usd).toFixed(2),
+        e.reimbursable ? 'YES' : 'NO',
+        e.reimbursed_date || '',
+        e.receipt_status || 'pending',
+        receipts.length,
+        csv(receipts.map(r => r.file_name).join('; '))
+      ].join(',');
+    });
+    const out = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([out], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `dsc-ledger-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  function csv(v) { return v ? `"${String(v).replace(/"/g,'""')}"` : ''; }
+
+  checkSession();
+</script>
+</body>
+</html>
